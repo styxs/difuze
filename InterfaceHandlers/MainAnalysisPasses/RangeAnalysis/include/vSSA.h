@@ -34,7 +34,7 @@ private:
 	DominatorTree *DT_;
 	DominanceFrontier *DF_;
 	void createSigmasIfNeeded(BasicBlock *BB);
-	void insertSigmas(TerminatorInst *TI, Value *V);
+	void insertSigmas(Instruction *TI, Value *V);
 	void renameUsesToSigma(Value *V, PHINode *sigma);
 	SmallVector<PHINode*, 25> insertPhisForSigma(Value *V, PHINode *sigma);
 	void insertPhisForPhi(Value *V, PHINode *phi);

@@ -14,6 +14,7 @@
 #include <llvm/Analysis/LoopInfo.h>
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Module.h"
 //#include "RangePass.h"
 //#include "RangeAnalysis.h"
@@ -52,7 +53,7 @@ namespace IOCTL_CHECKER {
             if(callInst != nullptr) {
                 targetFunction = callInst->getCalledFunction();
                 if(targetFunction == nullptr) {
-                   targetFunction = dyn_cast<Function>(callInst->getCalledValue()->stripPointerCasts());
+                   targetFunction = dyn_cast<Function>(callInst->getCalledOperand()->stripPointerCasts());
                 }
             }
             return (targetFunction != nullptr && targetFunction->hasName() &&
@@ -110,7 +111,7 @@ namespace IOCTL_CHECKER {
             //dbgs() <<"dada:" << *currVal << "\n";
             Instruction *currInst = dyn_cast<Instruction>(currVal);
             if (currInst == nullptr) {
-                for (auto &a:targetFunction->getArgumentList()) {
+                for (auto &a:targetFunction->args()) {
                     if (&a == currVal) {
                         return &a;
                     }
@@ -360,7 +361,7 @@ namespace IOCTL_CHECKER {
             for(Module::iterator mi = m.begin(), ei = m.end(); mi != ei; mi++) {
                 Function &currFunction = *mi;
                 if(!currFunction.isDeclaration() && currFunction.hasName()) {
-                    string currFuncName = currFunction.getName();
+                    string currFuncName = string(currFunction.getName());
                     if(currFuncName.find("init") != string::npos || currFuncName.find("probe") != string::npos) {
                         for(Function::iterator fi = currFunction.begin(), fe = currFunction.end(); fi != fe; fi++) {
                             BasicBlock &currBB = *fi;
@@ -498,7 +499,7 @@ namespace IOCTL_CHECKER {
                             if(targetFopsType->isStructTy()) {
                                 StructType *fopsStructType = dyn_cast<StructType>(targetFopsType);
                                 if(fopsStructType->hasName()) {
-                                    std::string structureName = fopsStructType->getStructName();
+                                    std::string structureName = std::string(fopsStructType->getStructName());
                                     if(structureName == "struct.v4l2_ioctl_ops") {
                                         handleV4L2Dev(m);
                                         dbgs() << "[+] Device Type: v4l2\n";

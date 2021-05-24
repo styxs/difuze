@@ -395,16 +395,16 @@ void InterProceduralRA<CGT>::MatchParametersAndReturnValues(
 
     Instruction *caller = cast<Instruction>(Us);
 
-    CallSite CS(caller);
+    auto *CS = dyn_cast<CallBase>(caller);
 
-    if (!CS.isCallee(U))
+    if (!CS->isCallee(U))
       continue;
 
     // Iterate over the real parameters and put them in the data structure
-    CallSite::arg_iterator AI;
-    CallSite::arg_iterator EI;
+    User::op_iterator AI;
+    User::op_iterator EI;
 
-    for (i = 0, AI = CS.arg_begin(), EI = CS.arg_end(); AI != EI; ++i, ++AI)
+    for (i = 0, AI = CS->arg_begin(), EI = CS->arg_end(); AI != EI; ++i, ++AI)
       Parameters[i].second = *AI;
 
     // // Do the interprocedural construction of CG
@@ -2205,7 +2205,7 @@ void ConstraintGraph::buildValueSwitchMap(const SwitchInst *sw) {
     if (CI == sw->case_default())
       continue;
 
-    const ConstantInt *constant = CI.getCaseValue();
+    const ConstantInt *constant = (*CI).getCaseValue();
 
     APInt sigMin = constant->getValue();
     APInt sigMax = sigMin;
@@ -2404,7 +2404,7 @@ void ConstraintGraph::buildValueBranchMap(const BranchInst *br) {
 void ConstraintGraph::buildValueMaps(const Function &F) {
   for (Function::const_iterator iBB = F.begin(), eBB = F.end(); iBB != eBB;
        ++iBB) {
-    const TerminatorInst *ti = iBB->getTerminator();
+    const Instruction *ti = iBB->getTerminator();
     const BranchInst *br = dyn_cast<BranchInst>(ti);
     const SwitchInst *sw = dyn_cast<SwitchInst>(ti);
 

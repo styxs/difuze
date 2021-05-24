@@ -38,7 +38,7 @@ namespace IOCTL_CHECKER {
             if(this->visitBB(currBB)) {
                 dbgs() << "Found a common structure\n";
             }
-            TerminatorInst *terminInst = currBB->getTerminator();
+            Instruction *terminInst = currBB->getTerminator();
             is_handled = false;
 
             if(terminInst != nullptr) {
@@ -83,7 +83,7 @@ namespace IOCTL_CHECKER {
 
     void IOInstVisitor::visitAllBBs(BasicBlock *startBB, std::set<BasicBlock*> &visitedBBs,
                                     std::set<BasicBlock*> &totalVisited, std::set<BasicBlock*> &visitedInThisIteration) {
-        TerminatorInst *terminInst;
+        Instruction *terminInst;
         bool is_handled;
 
         if(visitedBBs.find(startBB) == visitedBBs.end() && totalVisited.find(startBB) == totalVisited.end()) {
@@ -136,8 +136,8 @@ namespace IOCTL_CHECKER {
         std::set<BasicBlock*> visitedInThisIteration;
         if(this->isCmdAffected(targetSwitchCond)) {
             for(auto cis=targetSwitchInst->case_begin(), cie=targetSwitchInst->case_end(); cis != cie; cis++) {
-                ConstantInt *cmdVal = cis.getCaseValue();
-                BasicBlock *caseStartBB = cis.getCaseSuccessor();
+                ConstantInt *cmdVal = (*cis).getCaseValue();
+                BasicBlock *caseStartBB = (*cis).getCaseSuccessor();
                 std::set<BasicBlock*> visitedBBs;
                 visitedBBs.clear();
                 // start the print
@@ -198,7 +198,7 @@ namespace IOCTL_CHECKER {
 
     Function* IOInstVisitor::getFinalFuncTarget(CallInst *I) {
         if(I->getCalledFunction() == nullptr) {
-            Value *calledVal = I->getCalledValue();
+            Value *calledVal = I->getCalledOperand();
             if(dyn_cast<Function>(calledVal)) {
                 return dyn_cast<Function>(calledVal->stripPointerCasts());
             }
@@ -216,8 +216,8 @@ namespace IOCTL_CHECKER {
                     string calledfunc = I.getCalledFunction()->getName().str();
                     Value *targetOperand = nullptr;
                     Value *srcOperand = nullptr;
-                    if(calledfunc.find("_copy_from_user") != string::npos) {
-                        //dbgs() << "copy_from_user:\n";
+                    if(calledfunc.find("copy_from_guest") != string::npos) {
+                        dbgs() << "copy_from_user:\n";
                         if(I.getNumArgOperands() >= 1) {
                             targetOperand = I.getArgOperand(0);
                         }
@@ -225,10 +225,10 @@ namespace IOCTL_CHECKER {
                             srcOperand = I.getArgOperand(1);
                         }
                     }
-                    if(calledfunc.find("_copy_to_user") != string::npos) {
+                    if(calledfunc.find("copy_to_guest") != string::npos) {
                         // some idiot doesn't know how to parse
-                        /*dbgs() << "copy_to_user:\n";
-                        srcOperand = I.getArgOperand(0);
+                        dbgs() << "copy_to_guest:\n";
+                        /*srcOperand = I.getArgOperand(0);
                         targetOperand = I.getArgOperand(1);*/
                     }
                     if(srcOperand != nullptr) {

@@ -14,7 +14,8 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Bitcode/BitcodeReader.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/IR/Module.h"
@@ -149,7 +150,7 @@ std::string getFunctionFileName(Function *targetFunc) {
     for (auto &MD : MDs) {
         if (MDNode *N = MD.second) {
             if (auto *subProgram = dyn_cast<DISubprogram>(N)) {
-                targetFName = subProgram->getFilename();
+                targetFName = std::string(subProgram->getFilename());
             }
         }
     }
@@ -385,7 +386,7 @@ bool process_struct_in_custom_entry_files(GlobalVariable *currGlobal, FILE *outp
             Type *targetType = currGlobal->getType();
             assert(targetType->isPointerTy());
             Type *containedType = targetType->getContainedType(0);
-            std::string curr_st_name = containedType->getStructName();
+            std::string curr_st_name = std::string(containedType->getStructName());
             char hello_str[1024];
             for (auto curre:allentries) {
                 if (curre.find(curr_st_name) != std::string::npos) {
@@ -523,7 +524,7 @@ int main(int argc, char *argv[]) {
     LLVMContext context;
     ErrorOr<std::unique_ptr<MemoryBuffer>> fileOrErr = MemoryBuffer::getFileOrSTDIN(src_llvm_file);
 
-    ErrorOr<std::unique_ptr<llvm::Module>> moduleOrErr = parseBitcodeFile(fileOrErr.get()->getMemBufferRef(), context);
+    Expected<std::unique_ptr<llvm::Module>> moduleOrErr = parseBitcodeFile(fileOrErr.get()->getMemBufferRef(), context);
 
     Module *m = moduleOrErr.get().get();
 

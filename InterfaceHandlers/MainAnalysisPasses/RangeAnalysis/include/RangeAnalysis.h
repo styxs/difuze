@@ -45,13 +45,12 @@
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/IR/CallSite.h"
+#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/TimeValue.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/FileSystem.h"
 #include <deque>
@@ -580,6 +579,7 @@ public:
 /// because it works just fine and is well put together.
 class Profile {
 public:
+    /*
   class TimeValue : public sys::TimeValue {
   public:
     // Default constructor
@@ -686,6 +686,7 @@ public:
     errs() << formatted.str() << "\t - "
            << "Memory used in KB\n";
   }
+  */
 };
 
 // The VarNodes type.

@@ -76,7 +76,7 @@ namespace IOCTL_CHECKER {
                 for (auto &MD : MDs) {
                     if (MDNode *N = MD.second) {
                         if (auto *subProgram = dyn_cast<DISubprogram>(N)) {
-                            targetFName = subProgram->getFilename();
+                            targetFName = std::string(subProgram->getFilename());
                             tmpFilePath = FileUtils::getNewRelativePath(srcBaseDir, targetFName, bitcodeOutDir, preprocessedPrefix);
                             if(all_c_preprocessed_files.find(tmpFilePath) == all_c_preprocessed_files.end()) {
                                 all_c_preprocessed_files.insert(tmpFilePath);
@@ -85,16 +85,18 @@ namespace IOCTL_CHECKER {
                         }
                     }
                 }
+                dbgs() << "Checking function:" << currFunction.getName().str() << "\n";
                 //if the current function is the target function.
                 if(!currFunction.isDeclaration() && currFunction.hasName() &&
                    currFunction.getName().str() == checkFunctionName) {
+                    dbgs() << "Found the function name!\n";
                     TypePrintHelper::setFoldersPath(srcBaseDir, bitcodeOutDir);
                     TypePrintHelper::addRequiredFile(currFunction.getEntryBlock().getFirstNonPHIOrDbg());
 
                     for (auto &MD : MDs) {
                         if (MDNode *N = MD.second) {
                             if (auto *subProgram = dyn_cast<DISubprogram>(N)) {
-                                targetFName = subProgram->getFilename();
+                                targetFName = std::string(subProgram->getFilename());
                                 tmpFilePath = FileUtils::getNewRelativePath(srcBaseDir, targetFName, bitcodeOutDir, preprocessedPrefix);
                                 if(TypePrintHelper::requiredPreprocessingFiles.find(tmpFilePath) == TypePrintHelper::requiredPreprocessingFiles.end()) {
                                     TypePrintHelper::requiredPreprocessingFiles.insert(tmpFilePath);
@@ -141,8 +143,9 @@ namespace IOCTL_CHECKER {
                     std::set<int> uArg;
                     std::vector<Value*> callStack;
                     std::map<unsigned, Value*> callerArguments;
-                    cArg.insert(1);
-                    uArg.insert(2);
+                    // TODO
+                    cArg.insert(0);
+                    uArg.insert(1);
                     callerArguments.clear();
                     IOInstVisitor *currFuncVis = new IOInstVisitor(&currFunction, cArg, uArg, callerArguments,
                                                                    callStack, nullptr, 0);
@@ -172,6 +175,11 @@ namespace IOCTL_CHECKER {
             AU.addRequired<LoopInfoWrapperPass>();
             //AU.addRequired<unimelb::WrappedRangePass>();
         }
+
+        virtual void print(llvm::raw_ostream &O, const Module *M) const override {
+            O << "Here go the ioctl results!\n";
+        }
+
 
     private:
 

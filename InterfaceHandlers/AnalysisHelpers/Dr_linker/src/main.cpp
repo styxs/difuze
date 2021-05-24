@@ -13,10 +13,13 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Bitcode/ReaderWriter.h"
+//#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Bitcode/BitcodeReader.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/Error.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -1290,6 +1293,45 @@ static const char *samsung_driver_folders[] = {"drivers/acpi/video_detect.c",
                                               "sound/soc/samsung",
                                               NULL};
 
+static const char *xen_hypercall_files[] = {
+	"arch/arm/physdev.c",
+	"arch/arm/hvm.c",
+	"arch/arm/platform_hypercall.c",
+	"arch/arm/domain.c",
+	"arch/x86/mm.c",
+	"arch/x86/mm.c",
+	"arch/x86/domctl.c",
+	"arch/x86/physdev.c",
+	"arch/x86/compat.c",
+	"arch/x86/compat.c",
+	"arch/x86/platform_hypercall.c",
+	"arch/x86/hvm/hvm.c",
+	"arch/x86/hvm/hvm.c",
+	"arch/x86/cpu/vpmu.c",
+	"arch/x86/cpu/mcheck/mce.c",
+	"arch/x86/pv/descriptor",
+	"arch/x86/pv/callback.c",
+	"arch/x86/pv/callback.c",
+	"arch/x86/pv/callback.c",
+	"xsm/flask/flask_op.c",
+	"drivers/char/console.c",
+	"common/xenoprof.c",
+	"common/domctl.c",
+	"common/memory.c",
+	"common/sysctl.c",
+	"common/multicall.c",
+	"common/grant_table.c",
+	"common/hypfs.c",
+	"common/kexec.c",
+	"common/kexec.c",
+	"common/event_channel.c",
+	"common/argo.c",
+	"common/domain.c",
+	"common/dm.c",
+	"common/sched/core.c",
+	"common/compat/multicall.c",
+};
+
 void print_err(char *prog_name) {
     std::cerr << "[!] This program identifies all the required vendor bitcode files for each bitcode file";
     std::cerr << "[!] and saves then in llvm_link_out folder in the same directory as bitcode file.";
@@ -1326,6 +1368,7 @@ int is_interesting_folder(char *curr_folder, unsigned long arch_no) {
     unsigned  long i;
     const char *curr_fl;
     char to_check_file[1024];
+    std::cout << "Checking:" << curr_folder << std::endl;
     switch(arch_no) {
         case 1:
             inter_folders = mediatek_driver_folder;
@@ -1343,6 +1386,10 @@ int is_interesting_folder(char *curr_folder, unsigned long arch_no) {
             inter_folders = samsung_driver_folders;
             array_size = SIZEOF_ARRAY(samsung_driver_folders);
             break;
+        case 5:
+            inter_folders = xen_hypercall_files;
+            array_size = SIZEOF_ARRAY(xen_hypercall_files);
+            break;
         default:
             std::cerr << "Invalid arch number, Valid arch numbers are: 1(mediatek)|2(qualcomm)|3(huawei)|4(samsung)\n";
             exit(-2);
@@ -1356,7 +1403,7 @@ int is_interesting_folder(char *curr_folder, unsigned long arch_no) {
             if(strcmp(to_check_file,"sound/soc/samsung")) {
                 to_check_file[strlen(to_check_file) - 2] = 0;
             }
-            //std::cout << "Checking against:" << curr_fl << ":" << strlen(curr_fl) << "\n";
+            std::cout << "Checking against:" << to_check_file << " : " << strlen(curr_fl) << "\n";
             if (std::strstr(curr_folder, to_check_file)) {
                 std::cout << "[+] Interesting Folder:" << curr_folder << ": Matched with:" << curr_fl << "\n";
                 return 1;
@@ -1474,20 +1521,21 @@ int main(int argc, char *argv[]) {
         }
         std::cout << "[*] " << " Processing " << "(" << (i+1) << " of " << all_interesting_files.size() << "): "
                   << curr_bc_file << "\n";
-        ErrorOr<std::unique_ptr<llvm::Module>> moduleOrErr = parseBitcodeFile(fileOrErr.get()->getMemBufferRef(), context);
+        Expected<std::unique_ptr<llvm::Module>> moduleExpect = parseBitcodeFile(fileOrErr.get()->getMemBufferRef(), context);
         std::cout << "[*] " << " Processed " << "(" << (i+1) << " of " << all_interesting_files.size() << "): "
                   << curr_bc_file << "\n";
-        if (std::error_code ec = moduleOrErr.getError())
+        if (!moduleExpect)
         {
-            std::cerr << "[-] Error reading Module: " + ec.message() << std::endl;
+            auto err = moduleExpect.takeError();
+            logAllUnhandledErrors(std::move(err), errs(), "[-] Error reading Module: ");
             return 3;
         }
-        if (moduleOrErr.get().get() == nullptr)
+        if (moduleExpect.get().get() == nullptr)
         {
             std::cerr << "[-] Error reading Module" << std::endl;
             return 3;
         }
-        Module *m = moduleOrErr.get().get();
+        Module *m = moduleExpect.get().get();
         std::vector<string> definedFunctions;
         std::vector<string> declaredFunctions;
         definedFunctions.clear();

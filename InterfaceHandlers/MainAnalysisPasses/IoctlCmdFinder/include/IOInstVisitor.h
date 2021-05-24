@@ -7,11 +7,12 @@
 
 #include <set>
 #include "llvm/Pass.h"
-#include "llvm/PassAnalysisSupport.h"
+//#include "llvm/PassAnalysisSupport.h"
 //#include "dsa/DSGraph.h"
 //#include "dsa/DataStructure.h"
 #include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/IR/InstVisitor.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/CFG.h"
 
 using namespace llvm;

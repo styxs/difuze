@@ -14,6 +14,7 @@
 #include <llvm/Analysis/LoopInfo.h>
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Module.h"
 //#include "RangePass.h"
 //#include "RangeAnalysis.h"
@@ -113,7 +114,7 @@ namespace IOCTL_CHECKER {
 
                 llvm::GlobalVariable *globalVariable = &(*gstart);
 
-                std::string curr_global_name = globalVariable->getName();
+                std::string curr_global_name = std::string(globalVariable->getName());
                 if(curr_global_name == "v4l2_ioctls") {
                     // OK, we got our guy
                     if (globalVariable->hasInitializer()) {
@@ -147,7 +148,7 @@ namespace IOCTL_CHECKER {
                                     Function *targetFunc = dyn_cast<Function>(targetInit);
                                     if(targetFunc != nullptr) {
                                         //dbgs() << "Target Func:" << targetFunc->getName() << "\n";
-                                        string targetFuncName = targetFunc->getName();
+                                        string targetFuncName = std::string(targetFunc->getName());
                                         string finalFun = "fail";
                                         if(targetFuncName.find("v4l_dbg") == 0) {
                                             finalFun = "vidioc" + targetFuncName.substr(7, targetFuncName.length()-7);
@@ -193,6 +194,8 @@ namespace IOCTL_CHECKER {
                 fprintf(outputfp, "%ld,%ld\n", curra.first, curra.second);
             }
             fclose(outputfp);
+
+            return true;
         }
 
 

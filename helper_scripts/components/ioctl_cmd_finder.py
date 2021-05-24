@@ -111,6 +111,7 @@ def _run_ioctl_cmd_parser(combined_arg):
     output_file = combined_arg[4]
     llvm_bc_out = combined_arg[5]
     kernel_src_dir = combined_arg[6]
+    print(opt_bin_path, so_path, func_name, llvm_bc_file, output_file, llvm_bc_out)
     temp_bc_file = tempfile.NamedTemporaryFile(delete=False)
     bc_file_name = temp_bc_file.name
     temp_bc_file.close()
@@ -123,7 +124,7 @@ def _run_ioctl_cmd_parser(combined_arg):
     # Old ioctl cmd parser
     '''ret_val = os.system(opt_bin_path + " -analyze -debug -load " + so_path + ' -ioctl-cmd-parser -toCheckFunction=\"' +
                         str(func_name) + '\" ' + bc_file_name + ' > ' + output_file + ' 2>&1')'''
-    ret_val = os.system(opt_bin_path + " -analyze -debug -load " + so_path + ' -new-ioctl-cmd-parser -ioctlFunction=\"' +
+    ret_val = os.system(opt_bin_path + " -analyze -load " + so_path + ' -new-ioctl-cmd-parser -ioctlFunction=\"' +
                         str(func_name) + '\" -bcOutDir=\"' + llvm_bc_out + '\" -srcBaseDir=\"' + kernel_src_dir + '\" ' +
                         bc_file_name + ' >> ' + output_file + ' 2>&1')
     return ret_val, func_name

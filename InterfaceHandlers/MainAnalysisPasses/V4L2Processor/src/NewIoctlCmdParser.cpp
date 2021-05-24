@@ -14,6 +14,7 @@
 #include <llvm/Analysis/LoopInfo.h>
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Module.h"
 //#include "RangePass.h"
 //#include "RangeAnalysis.h"
@@ -113,7 +114,7 @@ namespace IOCTL_CHECKER {
                     for (auto &MD : MDs) {
                         if (MDNode *N = MD.second) {
                             if (auto *subProgram = dyn_cast<DISubprogram>(N)) {
-                                targetFName = subProgram->getFilename();
+                                targetFName = std::string(subProgram->getFilename());
                                 tmpFilePath = FileUtils::getNewRelativePath(srcBaseDir, targetFName, bitcodeOutDir, preprocessedPrefix);
                                 if(all_c_preprocessed_files.find(tmpFilePath) == all_c_preprocessed_files.end()) {
                                     all_c_preprocessed_files.insert(tmpFilePath);
@@ -138,7 +139,7 @@ namespace IOCTL_CHECKER {
                         for (auto &MD : MDs) {
                             if (MDNode *N = MD.second) {
                                 if (auto *subProgram = dyn_cast<DISubprogram>(N)) {
-                                    targetFName = subProgram->getFilename();
+                                    targetFName = std::string(subProgram->getFilename());
                                     tmpFilePath = FileUtils::getNewRelativePath(srcBaseDir, targetFName, bitcodeOutDir,
                                                                                 preprocessedPrefix);
                                     if (TypePrintHelper::requiredPreprocessingFiles.find(tmpFilePath) ==
@@ -196,7 +197,7 @@ namespace IOCTL_CHECKER {
                     for (auto &MD : MDs) {
                         if (MDNode *N = MD.second) {
                             if (auto *subProgram = dyn_cast<DISubprogram>(N)) {
-                                targetFName = subProgram->getFilename();
+                                targetFName = std::string(subProgram->getFilename());
                                 tmpFilePath = FileUtils::getNewRelativePath(srcBaseDir, targetFName, bitcodeOutDir, preprocessedPrefix);
                                 if(all_c_preprocessed_files.find(tmpFilePath) == all_c_preprocessed_files.end()) {
                                     all_c_preprocessed_files.insert(tmpFilePath);
@@ -214,7 +215,7 @@ namespace IOCTL_CHECKER {
                         for (auto &MD : MDs) {
                             if (MDNode *N = MD.second) {
                                 if (auto *subProgram = dyn_cast<DISubprogram>(N)) {
-                                    targetFName = subProgram->getFilename();
+                                    targetFName = std::string(subProgram->getFilename());
                                     tmpFilePath = FileUtils::getNewRelativePath(srcBaseDir, targetFName, bitcodeOutDir,
                                                                                 preprocessedPrefix);
                                     if (TypePrintHelper::requiredPreprocessingFiles.find(tmpFilePath) ==
