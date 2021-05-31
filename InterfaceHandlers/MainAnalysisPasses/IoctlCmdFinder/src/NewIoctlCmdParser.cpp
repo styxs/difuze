@@ -85,11 +85,10 @@ namespace IOCTL_CHECKER {
                         }
                     }
                 }
-                dbgs() << "Checking function:" << currFunction.getName().str() << "\n";
                 //if the current function is the target function.
                 if(!currFunction.isDeclaration() && currFunction.hasName() &&
                    currFunction.getName().str() == checkFunctionName) {
-                    dbgs() << "Found the function name!\n";
+                    dbgs() << "Processing function: " << checkFunctionName << "\n";
                     TypePrintHelper::setFoldersPath(srcBaseDir, bitcodeOutDir);
                     TypePrintHelper::addRequiredFile(currFunction.getEntryBlock().getFirstNonPHIOrDbg());
 
@@ -177,7 +176,7 @@ namespace IOCTL_CHECKER {
         }
 
         virtual void print(llvm::raw_ostream &O, const Module *M) const override {
-            O << "Here go the ioctl results!\n";
+            //O << "Here go the ioctl results!\n";
         }
 
 

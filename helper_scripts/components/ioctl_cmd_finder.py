@@ -111,22 +111,25 @@ def _run_ioctl_cmd_parser(combined_arg):
     output_file = combined_arg[4]
     llvm_bc_out = combined_arg[5]
     kernel_src_dir = combined_arg[6]
-    print(opt_bin_path, so_path, func_name, llvm_bc_file, output_file, llvm_bc_out)
     temp_bc_file = tempfile.NamedTemporaryFile(delete=False)
     bc_file_name = temp_bc_file.name
     temp_bc_file.close()
+    print("Running on:", opt_bin_path, so_path, func_name, llvm_bc_file, output_file, llvm_bc_out)
     # run mem2reg
     ret_val = os.system(opt_bin_path + " -mem2reg " + llvm_bc_file + " -o " + bc_file_name)
     if ret_val != 0:
         log_error("LLVM mem2reg failed on:", llvm_bc_file, " for function:", func_name,
                   ", So the output you get may be wrong.")
 
+    print("Got the mem2reg ret_val:", ret_val, "for:", llvm_bc_file)
     # Old ioctl cmd parser
     '''ret_val = os.system(opt_bin_path + " -analyze -debug -load " + so_path + ' -ioctl-cmd-parser -toCheckFunction=\"' +
                         str(func_name) + '\" ' + bc_file_name + ' > ' + output_file + ' 2>&1')'''
+    print("Running ioctl parser now on: ", llvm_bc_file)
     ret_val = os.system(opt_bin_path + " -analyze -load " + so_path + ' -new-ioctl-cmd-parser -ioctlFunction=\"' +
                         str(func_name) + '\" -bcOutDir=\"' + llvm_bc_out + '\" -srcBaseDir=\"' + kernel_src_dir + '\" ' +
                         bc_file_name + ' >> ' + output_file + ' 2>&1')
+    print("Got the ioctl parser ret_val:", ret_val, "for:", llvm_bc_file)
     return ret_val, func_name
 
 
@@ -148,7 +151,7 @@ def _run_ioctl_cmd_finder(entry_point_out, opt_bin_path, ioctl_so_path, ioctl_fi
     for curr_ep in all_lines:
         curr_ep = curr_ep.strip()
         all_p = curr_ep.split(':')
-        if all_p[0] == 'IOCTL' and (all_p[1] + all_p[2]) not in processed_func:
+        if all_p[0] == 'XENHYPERCALL' and (all_p[1] + all_p[2]) not in processed_func:
             processed_func.append(all_p[1] + all_p[2])
             to_run_cmds.append((opt_bin_path, ioctl_so_path, all_p[1], all_p[-1],
                                 os.path.join(ioctl_finder_out, all_p[3]), llvm_bc_out, kernel_src_dir))
@@ -156,6 +159,7 @@ def _run_ioctl_cmd_finder(entry_point_out, opt_bin_path, ioctl_so_path, ioctl_fi
     log_info("Found:", len(to_run_cmds), " ioctl functions to process.")
     log_info("Processing in multiprocessing mode")
     p = Pool(cpu_count())
+    #p = Pool(1)
     return_vals = p.map(_run_ioctl_cmd_parser, to_run_cmds)
     log_info("Finished processing:", len(to_run_cmds), " ioctl functions.")
     total_failed = 0

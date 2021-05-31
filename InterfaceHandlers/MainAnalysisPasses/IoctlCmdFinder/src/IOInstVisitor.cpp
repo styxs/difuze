@@ -6,11 +6,15 @@
 #include <CFGUtils.h>
 #include "TypePrintHelper.h"
 #include <iostream>
+#include <map>
 
 using namespace llvm;
 using namespace std;
 #define MAX_FUNC_DEPTH 10
 namespace IOCTL_CHECKER {
+    
+    std::map<std::string, std::set<BasicBlock*>> seen_states;
+
     // the main analysis function.
     void IOInstVisitor::analyze() {
         // No what we need is:
@@ -47,11 +51,11 @@ namespace IOCTL_CHECKER {
                     // is this a switch?
                     SwitchInst *dstSwitch = dyn_cast<SwitchInst>(currBB->getTerminator());
                     if(dstSwitch != nullptr) {
-                        //dbgs() << "Trying switch processing for:" << currBB->getName() << ":" << this->targetFunction->getName() <<"\n";
+                        dbgs() << "Trying switch processing for:" << currBB->getName() << ":" << this->targetFunction->getName() <<"\n";
                         // is switch handle cmd switch.
                         is_handled = handleCmdSwitch(dstSwitch, totalVisitedBBs);
                     } else {
-                        //dbgs() << "START:Trying branch processing for:" << currBB->getName() << ":" << this->targetFunction->getName() <<"\n";
+                        dbgs() << "START:Trying branch processing for:" << currBB->getName() << ":" << this->targetFunction->getName() <<"\n";
                         // not switch?, check if the branch instruction
                         // if this is branch, handle cmd branch
                         BranchInst *brInst = dyn_cast<BranchInst>(terminInst);
@@ -61,7 +65,7 @@ namespace IOCTL_CHECKER {
                         }
                         assert(brInst != nullptr);
                         is_handled = handleCmdCond(brInst, totalVisitedBBs);
-                        //dbgs() << "END:Trying branch processing for:" << currBB->getName() << ":" << this->targetFunction->getName() <<"\n";
+                        dbgs() << "END:Trying branch processing for:" << currBB->getName() << ":" << this->targetFunction->getName() <<"\n";
                     }
                 }
                 if(is_handled) {
@@ -76,6 +80,8 @@ namespace IOCTL_CHECKER {
                     }
                 }
             } else {
+                dbgs() << "ASSERT REACHED\n";
+                std::terminate();
                 assert(false);
             }
         }
@@ -123,11 +129,17 @@ namespace IOCTL_CHECKER {
                     // then visit its successors.
                     for (auto sb = succ_begin(startBB), se = succ_end(startBB); sb != se; sb++) {
                         BasicBlock *currSucc = *sb;
+                        dbgs() << "\tCalling visitALLBBs recursively (visitAllBBs)!!!" << "\n";
                         this->visitAllBBs(currSucc, visitedBBs, totalVisited, visitedInThisIteration);
                     }
                 }
             }
+            dbgs() << "ERASING BB from visited: ";
+            startBB->printAsOperand(dbgs(), false);
+            dbgs() << "\n";
             visitedBBs.erase(startBB);
+        } else {
+            dbgs() << "Skipped this one because we already visited it!\n";
         }
     }
 
@@ -163,11 +175,13 @@ namespace IOCTL_CHECKER {
             Value *cmdValue = this->currCmdValue;
             ConstantInt *cInt = dyn_cast<ConstantInt>(cmdValue);
             if(cInt != nullptr) {
+                dbgs() << "Found Cmd(BR) @ " << *I << ":START\n";
                 dbgs() << "Found Cmd(BR):" << cInt->getZExtValue() << "," << cInt->getZExtValue() << ":START\n";
                 this->currCmdValue = nullptr;
                 for (auto sb = succ_begin(I->getParent()), se = succ_end(I->getParent()); sb != se; sb++) {
                     BasicBlock *currSucc = *sb;
                     if(totalVisited.find(currSucc) == totalVisited.end()) {
+                        dbgs() << "\tCalling visitALLBBs recursively (handleCmdCond)!!!" << "\n";
                         this->visitAllBBs(currSucc, visitedBBs, totalVisited, visitedInThisIteration);
                     }
                 }
@@ -214,10 +228,12 @@ namespace IOCTL_CHECKER {
             if(dstFunc->isDeclaration()) {
                 if(dstFunc->hasName()) {
                     string calledfunc = I.getCalledFunction()->getName().str();
+                    dbgs() << "Calling function :" << calledfunc << "\n";
                     Value *targetOperand = nullptr;
                     Value *srcOperand = nullptr;
                     if(calledfunc.find("copy_from_guest") != string::npos) {
-                        dbgs() << "copy_from_user:\n";
+                        dbgs() << "copy_from_guest:\n";
+                        dbgs() << I << "\n";
                         if(I.getNumArgOperands() >= 1) {
                             targetOperand = I.getArgOperand(0);
                         }
@@ -228,8 +244,11 @@ namespace IOCTL_CHECKER {
                     if(calledfunc.find("copy_to_guest") != string::npos) {
                         // some idiot doesn't know how to parse
                         dbgs() << "copy_to_guest:\n";
-                        /*srcOperand = I.getArgOperand(0);
-                        targetOperand = I.getArgOperand(1);*/
+                        srcOperand = I.getArgOperand(0);
+                        targetOperand = I.getArgOperand(1);
+                        dbgs() << I << "\n";
+                        dbgs() << srcOperand << "\n";
+                        dbgs() << targetOperand << "\n";
                     }
                     if(srcOperand != nullptr) {
                         // sanity, this should be user value argument.
@@ -267,7 +286,9 @@ namespace IOCTL_CHECKER {
                         IOInstVisitor *childFuncVisitor = new IOInstVisitor(dstFunc, cmdArg, uArg, callerArgMap,
                                                                             newCallStack, this,
                                                                             this->curr_func_depth + 1);
+                        dbgs() << "[START] intraprocedural analysis into: " << dstFunc->getName() << "\n";
                         childFuncVisitor->analyze();
+                        dbgs() << "[END] intraprocedural analysis into: " << dstFunc->getName() << "\n";
                     }
 
                 }
