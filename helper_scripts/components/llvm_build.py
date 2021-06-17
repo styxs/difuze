@@ -109,14 +109,11 @@ def _get_src_file_idx(build_args):
     :param build_args: list of build args
     :return: index of file being compiled.
     """
-
-
     for idx, arg in enumerate(build_args):
         if re.match('.*\.c$', arg) is not None:
             return idx
 
     return None
-    #return build_args[-1]
 
 
 def _get_output_file_idx(build_args):
@@ -223,7 +220,6 @@ def _get_llvm_build_str(src_root_dir, gcc_build_string, output_folder, target_ar
     rel_src_dir = rel_src_dir[:-len(src_file_name)]
 
     curr_output_dir = os.path.join(output_folder, rel_src_dir)
-    print("Output dir:", curr_output_dir)
     os.system('mkdir -p ' + curr_output_dir)
 
     curr_output_file = os.path.abspath(os.path.join(curr_output_dir, src_file_name[:-2] + '.llvm.bc'))
@@ -258,7 +254,7 @@ def _generate_llvm_bitcode(kernel_src_dir, base_output_folder, makeout_file, gcc
     xen_root_path = None
     for curr_line in makeout_lines:
         curr_line = curr_line.strip()
-        
+
         import sys
         m = enter_directory_re.search(curr_line)
         if m:
@@ -273,7 +269,7 @@ def _generate_llvm_bitcode(kernel_src_dir, base_output_folder, makeout_file, gcc
             sys.stdout.write("\x1b[0;31mLeaving cwd: " +  m.groups(1)[0] + "\x1b[0m\n")
             assert(old_cwd == cwd_stack[-1])
             cwd_stack.pop()
-        
+
         if curr_line.startswith(gcc_prefix):
             llvm_mod_str = _get_llvm_build_str(kernel_src_dir, curr_line,
                                                base_output_folder, target_arch, clang_path, xen_root_path,
@@ -286,11 +282,16 @@ def _generate_llvm_bitcode(kernel_src_dir, base_output_folder, makeout_file, gcc
                                                cwd_stack[-1], build_output_dir=command_output_dir)
             fp_out.write(llvm_mod_str + '\n')
             llvm_cmds.append(llvm_mod_str)
+    with open('llvmbuild_cmds.txt', 'w') as f:
+        for cmd in llvm_cmds:
+            f.write(cmd)
+            f.write('\n')
     fp_out.close()
     log_info("Running LLVM Commands in multiprocessing mode.")
     build_src_dir = os.path.dirname(makeout_file)
     curr_dir = os.getcwd()
     os.chdir(build_src_dir)
+    print("Preprocess llvm commands:", llvm_cmds[0:10])
     if command_output_dir is not None:
         os.chdir(command_output_dir)
     p = Pool(cpu_count())

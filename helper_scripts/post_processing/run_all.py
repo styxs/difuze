@@ -57,8 +57,8 @@ def get_devpath(fname):
         i += 1
 
     print "Something is weird about the ioctl out file.."
-    import ipdb;ipdb.set_trace()
-    return None
+    #import ipdb;ipdb.set_trace()
+    return "xen_device"
 
 def get_struct_name(line):
     struct_name = line[line.find('.')+1:line.find('=')-1]
@@ -151,6 +151,8 @@ def get_pre_procs(lines):
         additional_pre_procs.remove(main_pre_proc)
     to_ret = [main_pre_proc]
     to_ret.extend(additional_pre_procs)
+
+    to_ret = list(map(lambda x: x.replace('llvm_codestore/xen', '../llvm_codestore'), to_ret))
     return to_ret
     
 def get_ioctl_name_line(all_lines):
@@ -176,7 +178,7 @@ def algo(fname):
     name_line = get_ioctl_name_line(lines)
     if name_line is None:
         name_line = lines[1]
-    ioctl_name = name_line[name_line.find(': ')+2::]
+    ioctl_name = name_line[name_line.find(':')+1::]
     print '[+] ioctl name: %s' % ioctl_name
 
     pre_proc_files = get_pre_procs(lines)
@@ -251,11 +253,14 @@ def algo(fname):
             else:
                 cur_type = line
 
+    #print("records:", records)
+
     return records, pre_proc_files, ioctl_name
 
 def get_relevant_preproc(struct_name, pre_procs, folder_name):
     found = False
     # a horrible hack..
+    print("Called get relevant prepoc with:", struct_name, pre_procs, folder_name)
     for pre in pre_procs:
         stuff = subprocess.Popen(['grep', struct_name, pre], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = stuff.communicate()
@@ -296,18 +301,21 @@ def setup_files(pre_proc, folder_name):
     	print '[+] Found a match in commons!'
         return out_dir + commons_dir + output_base_name + '_' + md5_sum + '_out.xml'
     
+    print("Creating xml file!")
     # create the c2xml file
     c2xml_cmd = './c2xml ' + pre_proc + ' > ' + out + output_base_name + '.xml'
     print c2xml_cmd
     os.system(c2xml_cmd)
 
+    print("PRE PARSING NOW")
     # pre_parse the file
-    pre_parse_cmd = 'python pre_parse.py ' + out + output_base_name + '.xml'
+    pre_parse_cmd = 'python2 pre_parse.py ' + out + output_base_name + '.xml'
     print pre_parse_cmd
     os.system(pre_parse_cmd)
 
+    print("PARSING NOW")
     # parse the file
-    parse_cmd = 'python parse.py ' + out + output_base_name + '_fixup.xml > ' + out + output_base_name + '_out.xml'
+    parse_cmd = 'python2 parse.py ' + out + output_base_name + '_fixup.xml > ' + out + output_base_name + '_out.xml'
     print parse_cmd
     os.system(parse_cmd)
     out_file = out + output_base_name + '_out.xml'
@@ -349,12 +357,17 @@ def process_records(records, pre_procs, folder_name, device_name, dev_num):
             # normal structs
             if 'struct' in cmd_type:
                 struct_name = get_struct_name(cmd_type)
+                #print("STRUCT IDENTIFIED:", struct_name)
                 out_file = get_relevant_preproc(struct_name, pre_procs, folder_name)
+                #print("Out file:", out_file)
                 if out_file == -1:
-                    print "[&] Couldn't find relevant out file!"
-                    import ipdb;ipdb.set_trace()
+                    print("[&] Couldn't find relevant out file for struct name:", struct_name)
+                    continue
+                #else:
+                #    import ipdb; ipdb.set_trace()
+                    #import ipdb;ipdb.set_trace()
                 # post_parse command
-                post_parse_cmd = 'python post_parse.py ' + out_file + ' ' + device_name + ' ' + str(cmd) + ' ' + struct_name + ' > ' + out_dir + folder_name + '/' + file_name
+                post_parse_cmd = 'python2 post_parse.py ' + out_file + ' ' + device_name + ' ' + str(cmd) + ' ' + struct_name + ' > ' + out_dir + folder_name + '/' + file_name
                 full_out_file = os.path.abspath(out_dir + folder_name + '/' + file_name)
                 print post_parse_cmd
                 os.system(post_parse_cmd)
@@ -368,7 +381,7 @@ def process_records(records, pre_procs, folder_name, device_name, dev_num):
             # generics
             elif cmd_type in ['i16', 'i32', 'i64']:
                 struct_name = 'foo'
-                post_parse_cmd = 'python post_parse.py ' + generics_dir + 'generic_' + cmd_type + '.xml ' + device_name + ' ' + str(cmd) + ' ' + struct_name + ' > ' + out_dir + folder_name + '/' + file_name
+                post_parse_cmd = 'python2 post_parse.py ' + generics_dir + 'generic_' + cmd_type + '.xml ' + device_name + ' ' + str(cmd) + ' ' + struct_name + ' > ' + out_dir + folder_name + '/' + file_name
                 full_out_file = os.path.abspath(out_dir + folder_name + '/' + file_name)
                 print post_parse_cmd
                 os.system(post_parse_cmd)
@@ -377,7 +390,7 @@ def process_records(records, pre_procs, folder_name, device_name, dev_num):
             elif is_array(cmd_type):
                 struct_name = 'foo'
                 file_name = folder_name + '_' + str(i) + '_arr' + device_name.replace('/','-') + '.xml'
-                post_parse_cmd = 'python post_parse.py ' + generics_dir + 'generic_arr.xml ' + device_name + ' ' + str(cmd) + ' ' + struct_name + ' > ' + out_dir + folder_name + '/' + file_name
+                post_parse_cmd = 'python2 post_parse.py ' + generics_dir + 'generic_arr.xml ' + device_name + ' ' + str(cmd) + ' ' + struct_name + ' > ' + out_dir + folder_name + '/' + file_name
                 full_out_file = os.path.abspath(out_dir + folder_name + '/' + file_name)
                 print post_parse_cmd
                 os.system(post_parse_cmd)
@@ -449,6 +462,7 @@ def main():
                     print '[!] Skipping %s. Name was not recovered and running in auto mode.' % ioctl_name
                     continue
 
+
             # setup files. This is done once per device/ioctl
             for record in records:
                 struct_type = record[1]
@@ -458,11 +472,17 @@ def main():
                 get_relevant_preproc(get_struct_name(struct_type), pre_proc_files, ioctl_name)
             #out_file = setup_files(pre_proc_files[0], ioctl_name)
             processed_files.append(fname)
+            print("RECORD!")
+            #print(records, pre_proc_files, ioctl_name)
             algo_dict[fname] = (records, pre_proc_files, ioctl_name)
 
         else:
             print '[!] Skipping %s. No commands found' % ioctl_name
 
+    print("AAAAAAAAAAAAAAAAAAAAAA")
+    print("AAAAAAAAAAAAAAAAAAAAAA")
+    print("AAAAAAAAAAAAAAAAAAAAAA")
+    print("Processed files:", processed_files)
 
     # pass #2
     for fname in processed_files:

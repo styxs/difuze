@@ -10,6 +10,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/ValueSymbolTable.h"
 #include <iostream>
+#include <string>
 #include <llvm/Analysis/CallGraph.h>
 #include <llvm/Analysis/LoopInfo.h>
 #include "llvm/Analysis/CFGPrinter.h"
@@ -47,6 +48,17 @@ namespace IOCTL_CHECKER {
                                            cl::value_desc("Absolute path to the directory "
                                                           "containing the linux source code."),
                                            cl::init(""));
+
+    static cl::opt<std::string> cmdParamPos ("cmdParamPos",
+                                           cl::desc("Index position of the cmd parameter."),
+                                           cl::value_desc("Index of the cmd parameter, starting from 0"),
+                                           cl::init(""));
+
+    static cl::opt<std::string> argParamPos ("argParamPos",
+                                           cl::desc("Index position of the arg parameter."),
+                                           cl::value_desc("Index of the arg parameter, starting from 0"),
+                                           cl::init(""));
+
 
 
     struct IoctlCmdCheckerPass: public ModulePass {
@@ -88,7 +100,7 @@ namespace IOCTL_CHECKER {
                 //if the current function is the target function.
                 if(!currFunction.isDeclaration() && currFunction.hasName() &&
                    currFunction.getName().str() == checkFunctionName) {
-                    dbgs() << "Processing function: " << checkFunctionName << "\n";
+                    //dbgs() << "Processing function: " << checkFunctionName << "\n";
                     TypePrintHelper::setFoldersPath(srcBaseDir, bitcodeOutDir);
                     TypePrintHelper::addRequiredFile(currFunction.getEntryBlock().getFirstNonPHIOrDbg());
 
@@ -142,9 +154,17 @@ namespace IOCTL_CHECKER {
                     std::set<int> uArg;
                     std::vector<Value*> callStack;
                     std::map<unsigned, Value*> callerArguments;
-                    // TODO
-                    cArg.insert(0);
-                    uArg.insert(1);
+
+                    int icmdParamPos = std::stoi(cmdParamPos);
+                    int iargParamPos = std::stoi(argParamPos);
+                    if (icmdParamPos != -1) {
+                        //dbgs() << "Picked up cmd position:" << icmdParamPos << "\n";
+                        cArg.insert(icmdParamPos);
+                    }
+                    if (iargParamPos != -1) {
+                        //dbgs() << "Picked up arg position:" << iargParamPos << "\n";
+                        uArg.insert(iargParamPos);
+                    }
                     callerArguments.clear();
                     IOInstVisitor *currFuncVis = new IOInstVisitor(&currFunction, cArg, uArg, callerArguments,
                                                                    callStack, nullptr, 0);

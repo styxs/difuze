@@ -34,8 +34,6 @@ namespace IOCTL_CHECKER {
         // call stack.
         std::vector<Value*> callStack;
 
-        std::set<BasicBlock*> visitBBs;
-
         // map that stores the actual values passed by the caller,
         // this is useful in determining the type of argument.
         std::map<Value*, Value*> callerArgs;
@@ -75,16 +73,6 @@ namespace IOCTL_CHECKER {
             this->callStack.insert(this->callStack.end(), calledStack.begin(), calledStack.end());
             this->currCmdValue = nullptr;
             this->curr_func_depth = curr_func_depth;
-        }
-
-        bool isVisited(BasicBlock *currBB) {
-            return this->visitBBs.find(currBB) != this->visitBBs.end();
-        }
-
-        void addBBToVisit(BasicBlock *currBB) {
-            if(this->visitBBs.find(currBB) == this->visitBBs.end()) {
-                this->visitBBs.insert(currBB);
-            }
         }
 
         bool isCmdAffected(Value *targetValue) {
@@ -164,12 +152,12 @@ namespace IOCTL_CHECKER {
         // main analysis function.
         void analyze();
 
-        bool handleCmdSwitch(SwitchInst *targetSwitchInst, std::set<BasicBlock*> &totalVisited);
+        bool handleCmdSwitch(SwitchInst *targetSwitchInst, std::set<std::string> &totalVisited);
 
-        bool handleCmdCond(BranchInst *I, std::set<BasicBlock*> &totalVisited);
+        bool handleCmdCond(BranchInst *I, std::set<std::string> &totalVisited);
 
-        void visitAllBBs(BasicBlock *startBB, std::set<BasicBlock*> &visitedBBs,
-                         std::set<BasicBlock*> &totalVisited, std::set<BasicBlock*> &visitedInThisIteration);
+        void visitAllBBs(BasicBlock *startBB, std::set<std::string> &visitedBBs,
+                         std::set<std::string> &totalVisited, std::set<std::string> &visitedInThisIteration);
     private:
         InstVisitor *_super;
         void getArgPropogationInfo(CallInst *I, std::set<int> &cmdArg, std::set<int> &uArg, std::map<unsigned, Value*> &callerArgInfo);

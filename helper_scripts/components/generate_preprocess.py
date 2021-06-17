@@ -1,5 +1,6 @@
 from base_component import *
 import os
+import re
 from multiprocessing import Pool, cpu_count
 from bear_build_helper import escape_compile_option
 
@@ -73,7 +74,8 @@ class GeneratePreprocessed(Component):
 INVALID_GCC_FLAGS = ['-mno-thumb-interwork', '-fconserve-stack', '-fno-var-tracking-assignments',
                      '-fno-delete-null-pointer-checks', '--param=allow-store-data-races=0',
                      '-Wno-unused-but-set-variable', '-Werror=frame-larger-than=1', '-Werror', '-Wall',
-                     '-fno-jump-tables', '-nostdinc', '-mpc-relative-literal-loads', '-mabi=lp64']
+                     '-fno-jump-tables', '-nostdinc', '-mpc-relative-literal-loads', '-mabi=lp64',
+                     '-mindirect-branch', '-mskip-rax-setup', '-mpreferred-stack-boundary']
 # target optimization to be used for llvm
 TARGET_OPTIMIZATION_FLAGS = ['-O0']
 # debug flags to be used by llvm
@@ -101,13 +103,17 @@ def _run_program(cmd_to_run):
     return os.system(cmd_to_run)
 
 
-def _get_src_file(build_args):
+def _get_src_file_idx(build_args):
     """
         Get source file from the build command line.
     :param build_args: list of build args
-    :return: file being compiled.
+    :return: index of file being compiled.
     """
-    return build_args[-1]
+    for idx, arg in enumerate(build_args):
+        if re.match('.*\.c$', arg) is not None:
+            return idx
+
+    return None
 
 
 def _get_output_file_idx(build_args):
@@ -142,26 +148,45 @@ def _is_allowed_flag(curr_flag):
     return True
 
 
-def _get_llvm_build_str(src_root_dir, gcc_build_string, output_folder, target_arch, clang_path, build_output_dir=None):
+def _get_llvm_build_str(src_root_dir, gcc_build_string, output_folder, target_arch, clang_path, xen_root_path, current_working_dir, build_output_dir=None):
     """
         Get LLVM build string from gcc build string
     :param src_root_dir: Directory containing all sources.
     :param gcc_build_string: GCC build string.
     :param output_folder: folder where llvm bitcode should be placed.
     :param target_arch: [1/2] depending on whether the arch is 32 or 64 bit.
+    :param current_working_dir: The current working directory of the makefile.
     :param build_output_dir: Directory from which build commands need to be executed.
     :return: LLVM build string
     """
 
     orig_build_args = gcc_build_string.strip().split()[1:]
-    rel_src_file_name = _get_src_file(orig_build_args)
 
-    if build_output_dir is None:
-        curr_src_file = os.path.join(src_root_dir, rel_src_file_name)
+    print("Orig build args:", orig_build_args)
+    print("Orig build args:", orig_build_args)
+    src_file_idx = _get_src_file_idx(orig_build_args)
+    if src_file_idx is None:
+        return ''
+    rel_src_file_name = orig_build_args[src_file_idx]
+    print("Rel source file name:", rel_src_file_name)
+
+    if current_working_dir is None:
+        curr_src_file = rel_src_file_name
+        print("No current working directory for source file!")
+        import sys
+        sys.exit(-1)
     else:
-        curr_src_file = os.path.join(build_output_dir, rel_src_file_name)
+        curr_src_file = os.path.join(current_working_dir, rel_src_file_name)
 
-    orig_build_args[-1] = curr_src_file
+    #if build_output_dir is None:
+    #    curr_src_file = os.path.join(src_root_dir, rel_src_file_name)
+    #else:
+    #    curr_src_file = os.path.join(build_output_dir, rel_src_file_name)
+
+    print("Cur source file name:", curr_src_file)
+ 
+    orig_build_args[src_file_idx] = curr_src_file
+
     modified_build_args = list()
 
     modified_build_args.append(clang_path)
@@ -169,10 +194,12 @@ def _get_llvm_build_str(src_root_dir, gcc_build_string, output_folder, target_ar
     modified_build_args.append('-E')
     # Handle Target flags
     modified_build_args.append(ARCH_TARGET)
-    if target_arch == ARM_32:
-        modified_build_args.append(ARM_32_LLVM_ARCH)
-    if target_arch == ARM_64:
-        modified_build_args.append(ARM_64_LLVM_ARCH)
+    # FIXME: make this less hacky
+    modified_build_args.append('amd64')
+    #if target_arch == ARM_32:
+    #    modified_build_args.append(ARM_32_LLVM_ARCH)
+    #if target_arch == ARM_64:
+    #    modified_build_args.append(ARM_64_LLVM_ARCH)
     # handle debug flags
     for curr_d_flg in DEBUG_INFO_FLAGS:
         modified_build_args.append(curr_d_flg)
@@ -192,22 +219,27 @@ def _get_llvm_build_str(src_root_dir, gcc_build_string, output_folder, target_ar
         else:
             rel_src_file_name = rel_src_file_name[len(src_root_dir) + 1:]
     # replace output file with llvm bc file
-
-    src_dir_name = os.path.dirname(rel_src_file_name)
+    assert(curr_src_file.startswith(xen_root_path))
+    rel_src_dir = curr_src_file[len(xen_root_path) + 1:]
     src_file_name = os.path.basename(curr_src_file)
+    rel_src_dir = rel_src_dir[:-len(src_file_name)]
 
-    curr_output_dir = os.path.join(output_folder, src_dir_name)
+    curr_output_dir = os.path.join(output_folder, rel_src_dir)
     os.system('mkdir -p ' + curr_output_dir)
 
     curr_output_file = os.path.abspath(os.path.join(curr_output_dir, src_file_name[:-2] + '.preprocessed'))
     output_file_idx = _get_output_file_idx(orig_build_args)
-    assert (output_file_idx != -1)
+    #assert (output_file_idx != -1)
+    # FIXME: investigate this in more depth
+    if (output_file_idx == -1):
+        return ''
     orig_build_args[output_file_idx] = curr_output_file
 
     for curr_op in orig_build_args:
         if _is_allowed_flag(curr_op):
             modified_build_args.append(escape_compile_option(curr_op))
 
+    print("Modified build args:", modified_build_args)
     return ' '.join(modified_build_args)
 
 
@@ -219,25 +251,52 @@ def _generate_llvm_preprocessed(kernel_src_dir, base_output_folder, makeout_file
     llvm_cmds = []
     if command_output_dir is not None:
         llvm_cmds.append('cd ' + command_output_dir + '\n')
+
+    #current_working_dir = None
+    cwd_stack = []
+    enter_directory_re = re.compile(r'.*Entering directory \'(.*)\'')
+    leave_directory_re = re.compile(r'.*Leaving directory \'(.*)\'')
+    xen_root_path = None
     for curr_line in makeout_lines:
         curr_line = curr_line.strip()
+
+        import sys
+        m = enter_directory_re.search(curr_line)
+        if m:
+            new_cwd = m.groups(1)[0]
+            sys.stdout.write("\x1b[0;32mEntering cwd: " + m.groups(1)[0] + "\x1b[0m\n")
+            cwd_stack.append(new_cwd)
+            if xen_root_path is None:
+                xen_root_path = new_cwd
+        m = leave_directory_re.search(curr_line)
+        if m:
+            old_cwd = m.groups(1)[0]
+            sys.stdout.write("\x1b[0;31mLeaving cwd: " +  m.groups(1)[0] + "\x1b[0m\n")
+            assert(old_cwd == cwd_stack[-1])
+            cwd_stack.pop()
+
         if curr_line.startswith(gcc_prefix):
             llvm_mod_str = _get_llvm_build_str(kernel_src_dir, curr_line,
-                                               base_output_folder, target_arch, clang_path,
-                                               build_output_dir=command_output_dir)
+                                               base_output_folder, target_arch, clang_path, xen_root_path,
+                                               cwd_stack[-1], build_output_dir=command_output_dir)
             fp_out.write(llvm_mod_str + '\n')
             llvm_cmds.append(llvm_mod_str)
         elif len(curr_line.split()) > 2 and curr_line.split()[1] == gcc_prefix:
             llvm_mod_str = _get_llvm_build_str(kernel_src_dir, ' '.join(curr_line.split()[1:]),
-                                               base_output_folder, target_arch, clang_path,
-                                               build_output_dir=command_output_dir)
+                                               base_output_folder, target_arch, clang_path, xen_root_path,
+                                               cwd_stack[-1], build_output_dir=command_output_dir)
             fp_out.write(llvm_mod_str + '\n')
             llvm_cmds.append(llvm_mod_str)
+    with open('preprocess_cmds.txt', 'w') as f:
+        for cmd in llvm_cmds:
+            f.write(cmd)
+            f.write('\n')
     fp_out.close()
     log_info("Running LLVM Commands in multiprocessing mode.")
     build_src_dir = os.path.dirname(makeout_file)
     curr_dir = os.getcwd()
     os.chdir(build_src_dir)
+    print("Preprocess llvm commands:", llvm_cmds[0:10])
     if command_output_dir is not None:
         os.chdir(command_output_dir)
     p = Pool(cpu_count())

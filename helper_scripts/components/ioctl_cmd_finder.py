@@ -4,6 +4,48 @@ import argparse
 from multiprocessing import Pool, cpu_count
 import tempfile
 
+PARAMETER_DESCRIPTION = {
+    'do_dm_op' : (1, None),
+    'do_set_timer_op' : (-1, -1), # if else
+    'do_event_channel_op_compat' : (None, None), # cmd inside parameter struct
+    'do_xenoprof_op' : (0, 1),
+    'do_vm_assist' : (0, -1),
+    'do_update_va_mapping_otherdomain' : (-1, -1), # No cmd parameter
+    'do_platform_op' : (None, None), # cmd inside parameter struct
+    'do_xenpmu_op' : (0, None),
+    'do_set_callbacks' : (None, None), # No cmd or arg parameter
+    'do_hvm_op' : (0, None),
+    'do_stack_switch' : (None, None), # No cmd or arg parameter
+    'do_flask_op' : (None, None), # cmd inside parameter struct
+    'do_fpu_taskswitch' : (None, None), # No cmd or arg parameter
+    'do_hypfs_op' : (0, None),
+    'do_get_debugreg' : (None, None), # No cmd or arg parameter
+    'do_set_debugreg' : (None, None), # No cmd or arg parameter
+    'do_argo_op' : (0, None),
+    'do_set_segment_base' : (0, None),
+    'do_mca' : (None, None), # cmd inside parameter struct
+    'do_callback_op' : (0, None), # cmd inside parameter struct
+    'do_update_va_mapping' : (None, None), # No cmd or arg parameter (or modified with bitwise &)
+    'do_sysctl' : (None, None), # cmd inside parameter struct
+    'do_kexec_op' : (0, None),
+    'do_iret' : (None, None), # no parameters
+    'do_kexec_op_internal' : (0, None), # no parameters
+    'do_update_descriptor' : (None, None), # No cmd or arg parameter
+    'do_physdev_op' : (0, None),
+    'do_sched_op' : (0, None),
+    'do_set_gdt' : (None, None), # No cmd or arg parameter
+    'do_sched_op_compat' : (0, 1),
+    'do_console_io' : (0, None),
+    'do_domctl' : (None, None), # Arch specific or no cmd or arg parameter
+    'do_physdev_op_compat' : (None, None), # No cmd or arg parameter
+    'do_event_channel_op' : (0, None),
+    'do_set_trap_table' : (None, None), # No cmd or arg parameter
+    'do_vmtrace_op' : (None, None), # cmd inside parameter struct
+    'do_vcpu_op' : (0, None),
+    'do_altp2m_op' : (None, None), # cmd inside parameter struct
+    'do_nmi_op' : (0, None),
+    'do_grant_table_op' : (0, None),
+}
 
 class IoctlCmdFinder(Component):
     """
@@ -104,9 +146,9 @@ def _run_ioctl_cmd_parser(combined_arg):
     opt_bin_path = combined_arg[0]
     so_path = combined_arg[1]
     func_name = combined_arg[2]
-    if func_name == "CAMERA_HW_Ioctl":
+    if func_name in ["do_memory_op", "do_mmuext_op", "do_mmu_update", "do_multicall"]:
         log_warning("Ioctl cmd finder skipped for:" + func_name)
-        return 0, func_name
+        return 1, func_name
     llvm_bc_file = combined_arg[3]
     output_file = combined_arg[4]
     llvm_bc_out = combined_arg[5]
@@ -114,22 +156,35 @@ def _run_ioctl_cmd_parser(combined_arg):
     temp_bc_file = tempfile.NamedTemporaryFile(delete=False)
     bc_file_name = temp_bc_file.name
     temp_bc_file.close()
-    print("Running on:", opt_bin_path, so_path, func_name, llvm_bc_file, output_file, llvm_bc_out)
+
+    cmdParamPos, argParamPos = PARAMETER_DESCRIPTION.get(func_name, (-2, -2))
+    if cmdParamPos is -2 and argParamPos is -2:
+        print("No parameter description for ", func_name)
+        return 1, func_name
+    if cmdParamPos is None and argParamPos is None:
+        print("Skipping because of no valid params: ", func_name)
+        return 1, func_name
+    if cmdParamPos is None:
+        cmdParamPos = -1
+    if argParamPos is None:
+        argParamPos = -1
+    #print("Running on:", opt_bin_path, so_path, func_name, llvm_bc_file, output_file, llvm_bc_out)
     # run mem2reg
     ret_val = os.system(opt_bin_path + " -mem2reg " + llvm_bc_file + " -o " + bc_file_name)
     if ret_val != 0:
         log_error("LLVM mem2reg failed on:", llvm_bc_file, " for function:", func_name,
                   ", So the output you get may be wrong.")
 
-    print("Got the mem2reg ret_val:", ret_val, "for:", llvm_bc_file)
     # Old ioctl cmd parser
     '''ret_val = os.system(opt_bin_path + " -analyze -debug -load " + so_path + ' -ioctl-cmd-parser -toCheckFunction=\"' +
                         str(func_name) + '\" ' + bc_file_name + ' > ' + output_file + ' 2>&1')'''
-    print("Running ioctl parser now on: ", llvm_bc_file)
+    #print("Running ioctl parser now on: ", llvm_bc_file)
+    print("STARTING: {}".format(str(func_name)))
     ret_val = os.system(opt_bin_path + " -analyze -load " + so_path + ' -new-ioctl-cmd-parser -ioctlFunction=\"' +
-                        str(func_name) + '\" -bcOutDir=\"' + llvm_bc_out + '\" -srcBaseDir=\"' + kernel_src_dir + '\" ' +
+                        str(func_name) + '\" -bcOutDir=\"' + llvm_bc_out + '\" -srcBaseDir=\"' + kernel_src_dir + '\" -cmdParamPos=\"' + str(cmdParamPos) + '\" -argParamPos=\"' + str(argParamPos) + '\" ' +
                         bc_file_name + ' >> ' + output_file + ' 2>&1')
-    print("Got the ioctl parser ret_val:", ret_val, "for:", llvm_bc_file)
+    print("SUCCESSFULLY FINISHED: {}".format(str(func_name)))
+    #print("Got the ioctl parser ret_val:", ret_val, "for:", llvm_bc_file)
     return ret_val, func_name
 
 

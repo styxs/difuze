@@ -10,6 +10,7 @@ import re
 debug=0
 
 tree = ET.parse(sys.argv[1])
+print("XML Tree:", tree)
 root = tree.getroot()
 # have to make each name unique
 i=0
