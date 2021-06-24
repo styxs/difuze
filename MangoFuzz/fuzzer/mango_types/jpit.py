@@ -8,6 +8,7 @@ class JPit(object):
 		self.name = name
 		self.main_struct = None
 		self.data_models = []
+		self.hypercall_id = None
 		self.ioctl_id = None
 		self.devname = None
 		self.target_struct = None

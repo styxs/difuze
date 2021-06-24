@@ -6,4 +6,5 @@ the juice or in other words the output.
 from globs import getSupportedJtypes, registerJtype, get_juicer, supported_jtypes
 from hexify_juicer import HexifyJuicer
 from tcp_juicer import TcpJuicer
+from xen_juicer import XenJuicer
 from ..utils import *

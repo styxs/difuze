@@ -352,6 +352,8 @@ def process_records(records, pre_procs, folder_name, device_name, dev_num):
 
         file_name = folder_name + '_' + str(i) + '_' + str(cmd) + device_name.replace('/','-') + '.xml'
 
+        print("FOLDER NAME:", folder_name)
+
         # just accept normal structs for now
         if type(cmd_type) is str:
             # normal structs
@@ -367,7 +369,7 @@ def process_records(records, pre_procs, folder_name, device_name, dev_num):
                 #    import ipdb; ipdb.set_trace()
                     #import ipdb;ipdb.set_trace()
                 # post_parse command
-                post_parse_cmd = 'python2 post_parse.py ' + out_file + ' ' + device_name + ' ' + str(cmd) + ' ' + struct_name + ' > ' + out_dir + folder_name + '/' + file_name
+                post_parse_cmd = 'python2 post_parse.py ' + out_file + ' ' + device_name + ' ' + str(cmd) + ' ' + struct_name + ' ' + folder_name + ' > ' + out_dir + folder_name + '/' + file_name
                 full_out_file = os.path.abspath(out_dir + folder_name + '/' + file_name)
                 print post_parse_cmd
                 os.system(post_parse_cmd)
@@ -381,7 +383,7 @@ def process_records(records, pre_procs, folder_name, device_name, dev_num):
             # generics
             elif cmd_type in ['i16', 'i32', 'i64']:
                 struct_name = 'foo'
-                post_parse_cmd = 'python2 post_parse.py ' + generics_dir + 'generic_' + cmd_type + '.xml ' + device_name + ' ' + str(cmd) + ' ' + struct_name + ' > ' + out_dir + folder_name + '/' + file_name
+                post_parse_cmd = 'python2 post_parse.py ' + generics_dir + 'generic_' + cmd_type + '.xml ' + device_name + ' ' + str(cmd) + ' ' + struct_name + ' ' + folder_name + ' > ' + out_dir + folder_name + '/' + file_name
                 full_out_file = os.path.abspath(out_dir + folder_name + '/' + file_name)
                 print post_parse_cmd
                 os.system(post_parse_cmd)
@@ -390,7 +392,7 @@ def process_records(records, pre_procs, folder_name, device_name, dev_num):
             elif is_array(cmd_type):
                 struct_name = 'foo'
                 file_name = folder_name + '_' + str(i) + '_arr' + device_name.replace('/','-') + '.xml'
-                post_parse_cmd = 'python2 post_parse.py ' + generics_dir + 'generic_arr.xml ' + device_name + ' ' + str(cmd) + ' ' + struct_name + ' > ' + out_dir + folder_name + '/' + file_name
+                post_parse_cmd = 'python2 post_parse.py ' + generics_dir + 'generic_arr.xml ' + device_name + ' ' + str(cmd) + ' ' + struct_name + ' ' + folder_name + ' > ' + out_dir + folder_name + '/' + file_name
                 full_out_file = os.path.abspath(out_dir + folder_name + '/' + file_name)
                 print post_parse_cmd
                 os.system(post_parse_cmd)

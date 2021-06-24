@@ -194,6 +194,13 @@ class Parser():
 		devname = devname_ele.get('value')
 		jpit.devname = devname
 
+		# hypercall_id
+		hypercall_id_ele = config_elem.find('hypercall_id')
+		if hypercall_id_ele is None:
+			rotten_peel("hypercall_id element not found in config!")
+		hypercall_id = hypercall_id_ele.get('value')
+		jpit.hypercall_id = hypercall_id
+
 		# ioctl_id
 		ioctl_id_ele = config_elem.find('ioctl_id')
 		if ioctl_id_ele is None:
